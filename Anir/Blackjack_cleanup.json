@@ -1,0 +1,234 @@
+{
+  "paragraphs": [
+    {
+      "title": "",
+      "text": "%pyspark\nfrom pyspark import SparkFiles\nfrom pyspark.ml.feature import Tokenizer\nfrom pyspark.sql.functions import col, udf\nfrom pyspark.sql.types import IntegerType\nimport numpy as np\nimport pandas as pd\nimport os\n# Load in user_data.csv from S3 into a DataFrame\nurl \u003d \"https://blackjack-unc-project4.s3.us-east-2.amazonaws.com/BlackJack.csv\"\nspark.sparkContext.addFile(url)\n\nuser_data_df \u003d spark.read.option(\u0027header\u0027, \u0027true\u0027).csv(SparkFiles.get(\"BlackJack.csv\"), inferSchema\u003dTrue, sep\u003d\u0027,\u0027)\nuser_data_df.show(10)",
+      "user": "",
+      "dateUpdated": "2020-03-04 01:21:10.000",
+      "config": {
+        "selectedInterpreter": {
+          "name": "spark.pyspark",
+          "profile": "pyspark",
+          "isCustom": false,
+          "editorLanguage": "python",
+          "className": "org.apache.zeppelin.spark.PySparkInterpreter",
+          "isDefault": false
+        },
+        "colWidth": 12.0,
+        "results": [
+          {}
+        ],
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false
+        }
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "data": "+---+--------+-----+-----+-----+-----+-----+----------+---------+---------+---------+---------+---------+---------+------+-------+-----------+----------+--------+--------+-----------+\n|_c0|PlayerNo|card1|card2|card3|card4|card5|sumofcards|dealcard1|dealcard2|dealcard3|dealcard4|dealcard5|sumofdeal|blkjck|winloss|plybustbeat|dlbustbeat|plwinamt|dlwinamt|ply2cardsum|\n+---+--------+-----+-----+-----+-----+-----+----------+---------+---------+---------+---------+---------+---------+------+-------+-----------+----------+--------+--------+-----------+\n|  0| Player1|    7|   10|    0|    0|    0|        17|       10|        8|        0|        0|        0|       18| nowin|   Loss|       Beat|     Dlwin|       0|      10|         17|\n|  1| Player2|   10|    9|    0|    0|    0|        19|       10|        8|        0|        0|        0|       18| nowin|    Win|      Plwin|      Beat|      20|       0|         19|\n|  2| Player3|    9|    8|    0|    0|    0|        17|       10|        8|        0|        0|        0|       18| nowin|   Loss|       Beat|     Dlwin|       0|      10|         17|\n|  3| Player4|    2|   10|    0|    5|    0|        17|       10|        8|        0|        0|        0|       18| nowin|   Loss|       Beat|     Dlwin|       0|      10|         12|\n|  4| Player5|   10|    2|    0|    5|    0|        17|       10|        8|        0|        0|        0|       18| nowin|   Loss|       Beat|     Dlwin|       0|      10|         12|\n|  5| Player6|    6|    1|    8|   10|    0|        25|       10|        8|        0|        0|        0|       18| nowin|   Loss|       Bust|    PlBust|       0|      10|          7|\n|  0| Player1|   10|    4|    0|    0|    0|        14|        4|        4|        5|       10|        0|       23| nowin|    Win|     DlBust|      Bust|      20|       0|         14|\n|  1| Player2|    3|   10|    0|    0|    0|        13|        4|        4|        5|       10|        0|       23| nowin|    Win|     DlBust|      Bust|      20|       0|         13|\n|  2| Player3|   10|    2|    0|    0|    0|        12|        4|        4|        5|       10|        0|       23| nowin|    Win|     DlBust|      Bust|      20|       0|         12|\n|  3| Player4|    9|    6|    0|    0|    0|        15|        4|        4|        5|       10|        0|       23| nowin|    Win|     DlBust|      Bust|      20|       0|         15|\n+---+--------+-----+-----+-----+-----+-----+----------+---------+---------+---------+---------+---------+---------+------+-------+-----------+----------+--------+--------+-----------+\nonly showing top 10 rows\n\n",
+            "type": "TEXT"
+          }
+        ]
+      },
+      "apps": [],
+      "jobName": "",
+      "id": "20200229-050923_1946140597",
+      "dateCreated": "2020-02-29 05:09:23.000",
+      "dateStarted": "2020-03-04 01:20:54.044",
+      "dateFinished": "2020-03-04 01:21:10.033",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 0
+    },
+    {
+      "title": "",
+      "text": "%pyspark\ndef count_rating(card1, card2):\n    if card1 \u003e1 and card1 \u003c7:\n        rating1 \u003d 1\n    elif card1 \u003e\u003d7 and card1 \u003c10:\n        rating1 \u003d 0\n    else:\n        rating1 \u003d -1\n    if card2 \u003e1 and card2 \u003c7:\n        rating2 \u003d 1\n    elif card2 \u003e\u003d7 and card2 \u003c10:\n        rating2 \u003d 0\n    else:\n        rating2 \u003d -1\n    rating \u003d rating1 + rating2\n    return rating\n\ndef hand2(card3):\n    if card3 \u003d\u003d0: \n        hand2 \u003d 0\n    else:\n        hand2 \u003d 1\n    return(hand2)\n\ndef win(winloss):\n    if winloss \u003d\u003d\u0027Push\u0027: \n        winloss \u003d \u0027Win\u0027\n    return(winloss)\n\n\ncount_hand1 \u003d udf(count_rating, IntegerType())\nnext_hand\u003d udf(hand2, IntegerType())\n\n\nuser_data_df \u003d user_data_df.select(\"*\", count_hand1(col(\"card1\"),col(\"card2\")).alias(\"count_hand1\"))\n\nuser_data_df \u003d user_data_df.select(\"*\", next_hand(col(\"card3\")).alias(\"next_hand\"))\n\nuser_data_df.show(10)\n\n\n",
+      "user": "",
+      "dateUpdated": "2020-03-04 01:21:15.000",
+      "config": {
+        "selectedInterpreter": {
+          "name": "spark.pyspark",
+          "profile": "pyspark",
+          "isCustom": false,
+          "editorLanguage": "python",
+          "className": "org.apache.zeppelin.spark.PySparkInterpreter",
+          "isDefault": false
+        },
+        "colWidth": 12.0,
+        "results": [
+          {}
+        ],
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false
+        }
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "data": "+---+--------+-----+-----+-----+-----+-----+----------+---------+---------+---------+---------+---------+---------+------+-------+-----------+----------+--------+--------+-----------+-----------+---------+\n|_c0|PlayerNo|card1|card2|card3|card4|card5|sumofcards|dealcard1|dealcard2|dealcard3|dealcard4|dealcard5|sumofdeal|blkjck|winloss|plybustbeat|dlbustbeat|plwinamt|dlwinamt|ply2cardsum|count_hand1|next_hand|\n+---+--------+-----+-----+-----+-----+-----+----------+---------+---------+---------+---------+---------+---------+------+-------+-----------+----------+--------+--------+-----------+-----------+---------+\n|  0| Player1|    7|   10|    0|    0|    0|        17|       10|        8|        0|        0|        0|       18| nowin|   Loss|       Beat|     Dlwin|       0|      10|         17|         -1|        0|\n|  1| Player2|   10|    9|    0|    0|    0|        19|       10|        8|        0|        0|        0|       18| nowin|    Win|      Plwin|      Beat|      20|       0|         19|         -1|        0|\n|  2| Player3|    9|    8|    0|    0|    0|        17|       10|        8|        0|        0|        0|       18| nowin|   Loss|       Beat|     Dlwin|       0|      10|         17|          0|        0|\n|  3| Player4|    2|   10|    0|    5|    0|        17|       10|        8|        0|        0|        0|       18| nowin|   Loss|       Beat|     Dlwin|       0|      10|         12|          0|        0|\n|  4| Player5|   10|    2|    0|    5|    0|        17|       10|        8|        0|        0|        0|       18| nowin|   Loss|       Beat|     Dlwin|       0|      10|         12|          0|        0|\n|  5| Player6|    6|    1|    8|   10|    0|        25|       10|        8|        0|        0|        0|       18| nowin|   Loss|       Bust|    PlBust|       0|      10|          7|          0|        1|\n|  0| Player1|   10|    4|    0|    0|    0|        14|        4|        4|        5|       10|        0|       23| nowin|    Win|     DlBust|      Bust|      20|       0|         14|          0|        0|\n|  1| Player2|    3|   10|    0|    0|    0|        13|        4|        4|        5|       10|        0|       23| nowin|    Win|     DlBust|      Bust|      20|       0|         13|          0|        0|\n|  2| Player3|   10|    2|    0|    0|    0|        12|        4|        4|        5|       10|        0|       23| nowin|    Win|     DlBust|      Bust|      20|       0|         12|          0|        0|\n|  3| Player4|    9|    6|    0|    0|    0|        15|        4|        4|        5|       10|        0|       23| nowin|    Win|     DlBust|      Bust|      20|       0|         15|          1|        0|\n+---+--------+-----+-----+-----+-----+-----+----------+---------+---------+---------+---------+---------+---------+------+-------+-----------+----------+--------+--------+-----------+-----------+---------+\nonly showing top 10 rows\n\n",
+            "type": "TEXT"
+          }
+        ]
+      },
+      "apps": [],
+      "jobName": "",
+      "id": "20200229-051210_1123383760",
+      "dateCreated": "2020-02-29 05:12:10.000",
+      "dateStarted": "2020-03-04 01:21:14.182",
+      "dateFinished": "2020-03-04 01:21:15.697",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 0
+    },
+    {
+      "title": "",
+      "text": "%pyspark\n#import spark.implicits._\n#import org.apache.spark.sql.functions._\n\n#user_data_df.select([\u0027card1\u0027,\u0027card2\u0027,\u0027count_hand1\u0027,\u0027next_hand\u0027,\u0027ply2cardsum\u0027,\u0027sumofcards\u0027,\u0027dealcard1\u0027,\u0027dealcard2\u0027, \u0027winloss\u0027]).show()\n\n\nblack_jack \u003d user_data_df\n\n#black_jack.show(10)\n\ncolumn_drop \u003d [\u0027card3\u0027,\u0027card4\u0027,\u0027card5\u0027,\u0027dealcard3\u0027,\u0027dealcard4\u0027,\u0027dealcard5\u0027,\u0027sumofdeal\u0027,\u0027blkjck\u0027,\u0027plybustbeat\u0027,\u0027dlbustbeat\u0027,\u0027plwinamt\u0027,\u0027dlwinamt\u0027]\nblack_jack \u003d black_jack.drop(*column_drop)\nblack_jack.show(10)\n",
+      "user": "",
+      "dateUpdated": "2020-03-05 11:44:21.000",
+      "config": {
+        "selectedInterpreter": {
+          "name": "spark.pyspark",
+          "profile": "pyspark",
+          "isCustom": false,
+          "editorLanguage": "python",
+          "className": "org.apache.zeppelin.spark.PySparkInterpreter",
+          "isDefault": false
+        },
+        "colWidth": 12.0,
+        "results": [
+          {},
+          {}
+        ],
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false
+        }
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "data": "+---+--------+-----+-----+----------+---------+---------+-------+-----------+-----------+---------+\n|_c0|PlayerNo|card1|card2|sumofcards|dealcard1|dealcard2|winloss|ply2cardsum|count_hand1|next_hand|\n+---+--------+-----+-----+----------+---------+---------+-------+-----------+-----------+---------+\n|  0| Player1|    7|   10|        17|       10|        8|   Loss|         17|         -1|        0|\n|  1| Player2|   10|    9|        19|       10|        8|    Win|         19|         -1|        0|\n|  2| Player3|    9|    8|        17|       10|        8|   Loss|         17|          0|        0|\n|  3| Player4|    2|   10|        17|       10|        8|   Loss|         12|          0|        0|\n|  4| Player5|   10|    2|        17|       10|        8|   Loss|         12|          0|        0|\n|  5| Player6|    6|    1|        25|       10|        8|   Loss|          7|          0|        1|\n|  0| Player1|   10|    4|        14|        4|        4|    Win|         14|          0|        0|\n|  1| Player2|    3|   10|        13|        4|        4|    Win|         13|          0|        0|\n|  2| Player3|   10|    2|        12|        4|        4|    Win|         12|          0|        0|\n|  3| Player4|    9|    6|        15|        4|        4|    Win|         15|          1|        0|\n+---+--------+-----+-----+----------+---------+---------+-------+-----------+-----------+---------+\nonly showing top 10 rows\n\n",
+            "type": "TEXT"
+          }
+        ]
+      },
+      "apps": [],
+      "jobName": "",
+      "id": "20200301-215241_2017178464",
+      "dateCreated": "2020-03-01 21:52:41.000",
+      "dateStarted": "2020-03-04 01:21:23.161",
+      "dateFinished": "2020-03-04 01:21:24.076",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 0
+    },
+    {
+      "title": "",
+      "text": "%pyspark\nfrom sklearn.datasets import make_regression\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.metrics import accuracy_score\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.preprocessing import scale\nfrom mpl_toolkits.mplot3d import Axes3D\nfrom sklearn.preprocessing import StandardScaler\nimport matplotlib.pyplot as plt # plotting\nimport numpy as np # linear algebra\nimport os # accessing directory structure\nimport warnings\nwarnings.simplefilter(\u0027ignore\u0027)\n\ntarget_data \u003d black_jack\ntraining_data \u003d black_jack\n\ncol_delete1 \u003d [\u0027_c0\u0027,\u0027PlayerNo\u0027,\u0027card1\u0027,\u0027card2\u0027,\u0027sumofcards\u0027,\u0027dealcard1\u0027,\u0027dealcard2\u0027,\u0027winloss\u0027,\u0027ply2cardsum\u0027,\u0027count_hand1\u0027]\ntarget_data \u003d target_data.drop(*col_delete1)\ntraining_data \u003d training_data.drop(\u0027next_hand\u0027)\ntarget_data.show(5)\ntraining_data.show(5)\n\ntarget_data.toPandas().to_csv(\"target_data.csv\")\ntraining_data.toPandas().to_csv(\"training_data.csv\")\n\n#target_data.write.csv(\u0027training1.csv\u0027)\n\n#df.toPandas().to_csv(\u0027mycsv.csv\u0027)\n#concluding the zepl notebook post ensuring we have the required data on the local#",
+      "user": "",
+      "dateUpdated": "2020-03-06 23:49:46.000",
+      "config": {
+        "selectedInterpreter": {
+          "name": "spark.pyspark",
+          "profile": "pyspark",
+          "isCustom": false,
+          "editorLanguage": "python",
+          "className": "org.apache.zeppelin.spark.PySparkInterpreter",
+          "isDefault": false
+        },
+        "colWidth": 12.0,
+        "results": [
+          {},
+          {},
+          {}
+        ],
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false
+        }
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "data": "+---------+\n|next_hand|\n+---------+\n|        0|\n|        0|\n|        0|\n|        0|\n|        0|\n+---------+\nonly showing top 5 rows\n\n\n",
+            "type": "TEXT"
+          },
+          {
+            "data": "+---+--------+-----+-----+----------+---------+---------+-------+-----------+-----------+\n|_c0|PlayerNo|card1|card2|sumofcards|dealcard1|dealcard2|winloss|ply2cardsum|count_hand1|\n+---+--------+-----+-----+----------+---------+---------+-------+-----------+-----------+\n|  0| Player1|    7|   10|        17|       10|        8|   Loss|         17|         -1|\n|  1| Player2|   10|    9|        19|       10|        8|    Win|         19|         -1|\n|  2| Player3|    9|    8|        17|       10|        8|   Loss|         17|          0|\n|  3| Player4|    2|   10|        17|       10|        8|   Loss|         12|          0|\n|  4| Player5|   10|    2|        17|       10|        8|   Loss|         12|          0|\n+---+--------+-----+-----+----------+---------+---------+-------+-----------+-----------+\nonly showing top 5 rows\n\n",
+            "type": "TEXT"
+          }
+        ]
+      },
+      "apps": [],
+      "jobName": "",
+      "id": "20200302-003441_527204283",
+      "dateCreated": "2020-03-02 00:34:41.000",
+      "dateStarted": "2020-03-04 02:05:15.729",
+      "dateFinished": "2020-03-04 02:05:18.053",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 0
+    },
+    {
+      "title": "",
+      "text": "",
+      "user": "",
+      "dateUpdated": "2020-03-03 03:49:16.000",
+      "config": {
+        "selectedInterpreter": {
+          "name": "spark",
+          "profile": "spark",
+          "isCustom": false,
+          "editorLanguage": "scala",
+          "className": "org.apache.zeppelin.spark.SparkInterpreter",
+          "isDefault": true
+        },
+        "colWidth": 12.0,
+        "results": [],
+        "editorSetting": {}
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "",
+      "id": "20200303-004519_1236860954",
+      "dateCreated": "2020-03-03 00:45:19.000",
+      "dateStarted": "2020-03-06 23:50:50.000",
+      "dateFinished": "2020-03-06 23:50:50.000",
+      "status": "READY",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 0
+    }
+  ],
+  "name": "Project-4-blackjack",
+  "id": "ac4145674b7847f4a672e9e13069f9c0",
+  "noteParams": {},
+  "noteForms": {},
+  "angularObjects": {},
+  "config": {},
+  "info": {}
+}
